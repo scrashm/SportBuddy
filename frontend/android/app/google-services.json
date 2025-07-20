@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "668330703445",
+    "project_id": "sport-buddy-ru",
+    "storage_bucket": "sport-buddy-ru.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668330703445:android:97cf426c9e387f8f51f2dc",
+        "android_client_info": {
+          "package_name": "com.example.sport_buddy_ru"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTxhOl9HHWSoIfTVannVXi5RNIyFb1WIo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668330703445:android:aafb15e68db2c81251f2dc",
+        "android_client_info": {
+          "package_name": "sport.buddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTxhOl9HHWSoIfTVannVXi5RNIyFb1WIo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
