@@ -3,6 +3,10 @@ const { Pool } = require('pg');
 const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
 const cors = require('cors');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const AWS = require('aws-sdk');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -213,6 +217,36 @@ app.post('/user/:telegram_id', async (req, res) => {
     res.json(updated.rows[0]);
   } finally {
     client.release();
+  }
+});
+
+// --- Конфигурируем S3 ---
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+const S3_BUCKET = process.env.AWS_S3_BUCKET;
+
+// --- Новый эндпоинт для загрузки аватара в S3 ---
+app.post('/user/:telegram_id/avatar', multer({ dest: 'uploads/' }).single('avatar'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Файл не загружен.' });
+  }
+  const fileContent = fs.readFileSync(req.file.path);
+  const fileName = `${req.params.telegram_id}-${Date.now()}${path.extname(req.file.originalname)}`;
+  const params = {
+    Bucket: S3_BUCKET,
+    Key: fileName,
+    Body: fileContent,
+    ContentType: req.file.mimetype,
+    ACL: 'public-read',
+  };
+  try {
+    const data = await s3.upload(params).promise();
+    res.json({ avatarUrl: data.Location });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка загрузки в S3', details: err.message });
   }
 });
 
