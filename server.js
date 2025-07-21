@@ -74,8 +74,12 @@ app.post('/login/telegram/request', async (req, res) => {
     await bot.sendMessage(telegram_id, `Ваш код для входа в Sport Buddy: ${otp}`);
     res.json({ success: true, message: 'Код отправлен.' });
   } catch (error) {
-    console.error("Ошибка отправки сообщения:", error);
-    res.status(500).json({ success: false, error: 'Не удалось отправить код. Убедитесь, что пользователь начал диалог с ботом.' });
+    console.error("Ошибка отправки сообщения от Telegram API:", JSON.stringify(error, null, 2));
+    res.status(500).json({ 
+      success: false, 
+      error: 'Не удалось отправить код. Убедитесь, что пользователь начал диалог с ботом.',
+      details: error.response ? error.response.body : 'No response body'
+    });
   }
 });
 
