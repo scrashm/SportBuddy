@@ -33,6 +33,7 @@ const loginTokens = new Map();
  */
 app.post('/auth/telegram/start', async (req, res) => {
   const loginToken = crypto.randomBytes(16).toString('hex');
+  console.log(`[TOKEN] Создан новый токен: ${loginToken}`);
   loginTokens.set(loginToken, { status: 'pending', createdAt: Date.now() });
   const url = `https://t.me/SportBuddyAuthBot?start=token_${loginToken}`;
   res.json({ url, token: loginToken });
@@ -62,8 +63,13 @@ bot.onText(/\/start (token_[a-f0-9]+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
   const token = match[1].replace('token_', '');
+
+  console.log(`[TOKEN] Бот получил /start с токеном: ${token}`);
+  console.log(`[TOKEN] Текущие токены в хранилище:`, Array.from(loginTokens.keys()));
+
   const entry = loginTokens.get(token);
   if (!entry) {
+    console.log(`[TOKEN] Ошибка: токен ${token} не найден в хранилище.`);
     bot.sendMessage(chatId, 'Ссылка устарела или неверна. Попробуйте войти снова из приложения.');
     return;
   }
