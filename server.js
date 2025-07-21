@@ -100,6 +100,81 @@ bot.on('callback_query', async (query) => {
     entry.status = 'confirmed';
     loginTokens.set(token, entry);
     bot.sendMessage(chatId, 'Вход подтвержден! Теперь вы можете вернуться в приложение.');
+    // --- Создание пользователя в БД, если его нет ---
+    const client = await pool.connect();
+    try {
+      const res = await client.query('SELECT * FROM users WHERE telegram_id = $1', [chatId]);
+      if (res.rows.length === 0) {
+        await client.query(
+          'INSERT INTO users (telegram_id, telegram_username, name) VALUES ($1, $2, $3)',
+          [chatId, entry.telegram_username, entry.telegram_username]
+        );
+      }
+    } finally {
+      client.release();
+    }
+  }
+});
+
+// --- Инициализация таблицы пользователей ---
+async function initializeUsersTable() {
+  const client = await pool.connect();
+  try {
+    await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        telegram_id BIGINT UNIQUE NOT NULL,
+        telegram_username VARCHAR(255),
+        name VARCHAR(255),
+        avatar_url TEXT,
+        bio TEXT,
+        sports TEXT[],
+        interests TEXT[],
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('Таблица users готова.');
+  } finally {
+    client.release();
+  }
+}
+initializeUsersTable();
+
+// --- Получить профиль пользователя ---
+app.get('/user/:telegram_id', async (req, res) => {
+  const { telegram_id } = req.params;
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+    res.json(result.rows[0]);
+  } finally {
+    client.release();
+  }
+});
+
+// --- Создать/обновить профиль пользователя ---
+app.post('/user/:telegram_id', async (req, res) => {
+  const { telegram_id } = req.params;
+  const { name, avatar_url, bio, sports, interests } = req.body;
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+    await client.query(
+      `UPDATE users SET name = $1, avatar_url = $2, bio = $3, sports = $4, interests = $5, updated_at = NOW() WHERE telegram_id = $6`,
+      [name, avatar_url, bio, sports, interests, telegram_id]
+    );
+    const updated = await client.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+    res.json(updated.rows[0]);
+  } finally {
+    client.release();
   }
 });
 
