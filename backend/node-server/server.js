@@ -4,8 +4,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Настройка подключения к базе данных PostgreSQL
-// Railway автоматически предоставляет DATABASE_URL в переменных окружения
+// Попытка передеплоя с новыми настройками
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
