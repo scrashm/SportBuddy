@@ -22,106 +22,119 @@ const bot = new TelegramBot(token, { polling: true });
 
 app.use(express.json());
 
-// --- Хранилище токенов для входа через Telegram (лучше использовать Redis или БД в проде) ---
-// loginTokens: token -> { status, telegram_id, telegram_username, createdAt }
-const loginTokens = new Map();
+// --- Инициализация таблицы токенов ---
+async function initializeLoginTokensTable() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS login_tokens (
+        token TEXT PRIMARY KEY,
+        status VARCHAR(50) NOT NULL,
+        telegram_id BIGINT,
+        telegram_username VARCHAR(255),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('Таблица login_tokens готова.');
+  } finally {
+    client.release();
+  }
+}
+initializeLoginTokensTable();
 
-/**
- * Эндпоинт для генерации токена и выдачи deep link для входа через Telegram
- * POST /auth/telegram/start
- * Ответ: { url, token }
- */
+// --- Генерация токена и выдача ссылки ---
 app.post('/auth/telegram/start', async (req, res) => {
   const loginToken = crypto.randomBytes(16).toString('hex');
   console.log(`[TOKEN] Создан новый токен: ${loginToken}`);
-  loginTokens.set(loginToken, { status: 'pending', createdAt: Date.now() });
+  const client = await pool.connect();
+  try {
+    await client.query('INSERT INTO login_tokens (token, status) VALUES ($1, $2)', [loginToken, 'pending']);
+  } finally {
+    client.release();
+  }
   const url = `https://t.me/SportBuddyAuthBot?start=token_${loginToken}`;
   res.json({ url, token: loginToken });
 });
 
-/**
- * Эндпоинт для проверки статуса токена (используется фронтом для polling)
- * GET /auth/telegram/status/:token
- * Ответ: { status, telegram_id?, telegram_username? }
- */
-app.get('/auth/telegram/status/:token', (req, res) => {
+// --- Проверка статуса токена ---
+app.get('/auth/telegram/status/:token', async (req, res) => {
   const { token } = req.params;
-  const entry = loginTokens.get(token);
-  if (!entry) return res.json({ status: 'not_found' });
-  if (entry.status === 'confirmed') {
-    res.json({ status: 'confirmed', telegram_id: entry.telegram_id, telegram_username: entry.telegram_username });
-  } else {
-    res.json({ status: entry.status });
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM login_tokens WHERE token = $1', [token]);
+    if (result.rows.length === 0) {
+      return res.json({ status: 'not_found' });
+    }
+    const entry = result.rows[0];
+    if (entry.status === 'confirmed') {
+      res.json({ status: 'confirmed', telegram_id: entry.telegram_id, telegram_username: entry.telegram_username });
+    } else {
+      res.json({ status: entry.status });
+    }
+  } finally {
+    client.release();
   }
 });
 
-/**
- * Обработка команды /start с deep link (бот получает /start token_xxx)
- * Сохраняет Telegram ID и username, отправляет пользователю кнопку подтверждения
- */
+// --- Интеграция с Telegram Bot ---
 bot.onText(/\/start (token_[a-f0-9]+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
   const token = match[1].replace('token_', '');
 
-  console.log(`[TOKEN] Бот получил /start с токеном: ${token}`);
-  console.log(`[TOKEN] Текущие токены в хранилище:`, Array.from(loginTokens.keys()));
-
-  const entry = loginTokens.get(token);
-  if (!entry) {
-    console.log(`[TOKEN] Ошибка: токен ${token} не найден в хранилище.`);
-    bot.sendMessage(chatId, 'Ссылка устарела или неверна. Попробуйте войти снова из приложения.');
-    return;
-  }
-  if (entry.status === 'confirmed') {
-    bot.sendMessage(chatId, 'Этот токен уже подтвержден.');
-    return;
-  }
-  // Сохраняем Telegram ID и username, но не подтверждаем до нажатия кнопки
-  entry.telegram_id = chatId;
-  entry.telegram_username = username;
-  entry.status = 'waiting_confirm';
-  loginTokens.set(token, entry);
-  bot.sendMessage(chatId, 'Подтвердите вход в приложение Sport Buddy:', {
-    reply_markup: {
-      inline_keyboard: [[{ text: 'Подтвердить вход', callback_data: `confirm_${token}` }]]
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT * FROM login_tokens WHERE token = $1', [token]);
+    if (result.rows.length === 0) {
+      bot.sendMessage(chatId, 'Ссылка устарела или неверна. Попробуйте войти снова из приложения.');
+      return;
     }
-  });
+    const entry = result.rows[0];
+    if (entry.status === 'confirmed') {
+      bot.sendMessage(chatId, 'Этот токен уже подтвержден.');
+      return;
+    }
+    
+    await client.query(
+      'UPDATE login_tokens SET telegram_id = $1, telegram_username = $2, status = $3 WHERE token = $4',
+      [chatId, username, 'waiting_confirm', token]
+    );
+
+    bot.sendMessage(chatId, 'Подтвердите вход в приложение Sport Buddy:', {
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Подтвердить вход', callback_data: `confirm_${token}` }]]
+      }
+    });
+  } finally {
+    client.release();
+  }
 });
 
-/**
- * Обработка нажатия кнопки "Подтвердить вход" в Telegram-боте
- * Помечает токен как подтвержденный, сообщает пользователю об успешном входе
- */
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
   if (data.startsWith('confirm_')) {
     const token = data.replace('confirm_', '');
-    const entry = loginTokens.get(token);
-    if (!entry) {
-      bot.sendMessage(chatId, 'Токен не найден или устарел.');
-      return;
-    }
-    entry.status = 'confirmed';
-    loginTokens.set(token, entry);
-    bot.sendMessage(chatId, 'Вход подтвержден! Теперь вы можете вернуться в приложение.');
-    // --- Создание пользователя в БД, если его нет ---
     const client = await pool.connect();
     try {
-      const res = await client.query('SELECT * FROM users WHERE telegram_id = $1', [chatId]);
-      if (res.rows.length === 0) {
-        console.log(`[CREATE USER] Новый пользователь: telegram_id=${chatId}, username=${entry.telegram_username}`);
+      const result = await client.query('SELECT * FROM login_tokens WHERE token = $1', [token]);
+      if (result.rows.length === 0) {
+        bot.sendMessage(chatId, 'Токен не найден или устарел.');
+        return;
+      }
+      const entry = result.rows[0];
+      
+      await client.query('UPDATE login_tokens SET status = $1 WHERE token = $2', ['confirmed', token]);
+      
+      bot.sendMessage(chatId, 'Вход подтвержден! Теперь вы можете вернуться в приложение.');
+
+      const userResult = await client.query('SELECT * FROM users WHERE telegram_id = $1', [chatId]);
+      if (userResult.rows.length === 0) {
         await client.query(
           'INSERT INTO users (telegram_id, telegram_username, name) VALUES ($1, $2, $3)',
           [chatId, entry.telegram_username, entry.telegram_username]
         );
-        console.log(`[CREATE USER] Пользователь успешно создан.`);
-      } else {
-        console.log(`[CREATE USER] Пользователь уже существует: telegram_id=${chatId}`);
       }
-    } catch (err) {
-      console.error(`[CREATE USER ERROR]`, err);
     } finally {
       client.release();
     }
