@@ -105,11 +105,17 @@ bot.on('callback_query', async (query) => {
     try {
       const res = await client.query('SELECT * FROM users WHERE telegram_id = $1', [chatId]);
       if (res.rows.length === 0) {
+        console.log(`[CREATE USER] Новый пользователь: telegram_id=${chatId}, username=${entry.telegram_username}`);
         await client.query(
           'INSERT INTO users (telegram_id, telegram_username, name) VALUES ($1, $2, $3)',
           [chatId, entry.telegram_username, entry.telegram_username]
         );
+        console.log(`[CREATE USER] Пользователь успешно создан.`);
+      } else {
+        console.log(`[CREATE USER] Пользователь уже существует: telegram_id=${chatId}`);
       }
+    } catch (err) {
+      console.error(`[CREATE USER ERROR]`, err);
     } finally {
       client.release();
     }
