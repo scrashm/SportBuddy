@@ -123,17 +123,22 @@ bot.on('callback_query', async (query) => {
         return;
       }
       const entry = result.rows[0];
-      
+      console.log(`[USER CREATE] entry из login_tokens:`, entry);
       await client.query('UPDATE login_tokens SET status = $1 WHERE token = $2', ['confirmed', token]);
-      
       bot.sendMessage(chatId, 'Вход подтвержден! Теперь вы можете вернуться в приложение.');
-
       const userResult = await client.query('SELECT * FROM users WHERE telegram_id = $1', [chatId]);
       if (userResult.rows.length === 0) {
-        await client.query(
-          'INSERT INTO users (telegram_id, telegram_username, name) VALUES ($1, $2, $3)',
-          [chatId, entry.telegram_username, entry.telegram_username]
-        );
+        try {
+          await client.query(
+            'INSERT INTO users (telegram_id, telegram_username, name) VALUES ($1, $2, $3)',
+            [chatId, entry.telegram_username, entry.telegram_username]
+          );
+          console.log(`[USER CREATE] Пользователь успешно создан: telegram_id=${chatId}, username=${entry.telegram_username}`);
+        } catch (err) {
+          console.error(`[USER CREATE ERROR]`, err);
+        }
+      } else {
+        console.log(`[USER CREATE] Пользователь уже существует: telegram_id=${chatId}`);
       }
     } finally {
       client.release();
