@@ -2,9 +2,18 @@ const express = require('express');
 const { Pool } = require('pg');
 const TelegramBot = require('node-telegram-bot-api');
 const crypto = require('crypto');
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+}));
+console.log('CORS enabled');
+app.use(express.json());
 
 // --- Подключение к базе данных PostgreSQL ---
 const pool = new Pool({
@@ -19,8 +28,6 @@ if (!token) {
   process.exit(1);
 }
 const bot = new TelegramBot(token, { polling: true });
-
-app.use(express.json());
 
 // --- Инициализация таблицы токенов ---
 async function initializeLoginTokensTable() {
