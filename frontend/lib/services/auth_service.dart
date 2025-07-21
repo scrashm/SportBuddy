@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../models/user.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AuthService with ChangeNotifier {
   // TODO: Вынести в конфигурацию
@@ -70,9 +71,13 @@ class AuthService with ChangeNotifier {
     required String bio,
     required List<String> interests,
     required String pet,
-    // TODO: Add avatarUrl later
+    XFile? avatarXFile,
   }) async {
     if (_currentUser == null) return;
+
+    // --- Отключаем загрузку аватара на Railway (просто не отправляем файл) ---
+    // String? avatarUrl;
+    // if (avatarXFile != null) { ... }
 
     final response = await http.post(
       Uri.parse('$_baseUrl/user/${_currentUser!.telegramId}'),
@@ -82,6 +87,7 @@ class AuthService with ChangeNotifier {
         'bio': bio,
         'interests': interests,
         'pet': pet,
+        // if (avatarUrl != null) 'avatar_url': avatarUrl,
       }),
     );
 
@@ -89,7 +95,6 @@ class AuthService with ChangeNotifier {
       _currentUser = User.fromJson(jsonDecode(response.body));
       notifyListeners();
     } else {
-      // TODO: Handle error properly
       print('Failed to update profile: ${response.body}');
       throw Exception('Не удалось обновить профиль.');
     }
