@@ -1,0 +1,12 @@
+# Rider
+.idea/
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log 
