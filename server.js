@@ -121,8 +121,9 @@ async function initializeUsersTable() {
   const client = await pool.connect();
   try {
     await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    await client.query('DROP TABLE IF EXISTS users');
     await client.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         telegram_id BIGINT UNIQUE NOT NULL,
         telegram_username VARCHAR(255),
@@ -135,7 +136,7 @@ async function initializeUsersTable() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
-    console.log('Таблица users готова.');
+    console.log('Таблица users пересоздана.');
   } finally {
     client.release();
   }
