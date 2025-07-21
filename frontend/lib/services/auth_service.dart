@@ -65,6 +65,36 @@ class AuthService with ChangeNotifier {
     }
   }
 
+  Future<void> updateUserProfile({
+    required String name,
+    required String bio,
+    required List<String> interests,
+    required String pet,
+    // TODO: Add avatarUrl later
+  }) async {
+    if (_currentUser == null) return;
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl/user/${_currentUser!.telegramId}'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'bio': bio,
+        'interests': interests,
+        'pet': pet,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      _currentUser = User.fromJson(jsonDecode(response.body));
+      notifyListeners();
+    } else {
+      // TODO: Handle error properly
+      print('Failed to update profile: ${response.body}');
+      throw Exception('Не удалось обновить профиль.');
+    }
+  }
+
   Future<void> signOut() async {
     _currentUser = null;
     print('[AUTH] Пользователь вышел из системы.');

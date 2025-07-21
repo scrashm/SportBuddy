@@ -7,6 +7,7 @@ class User {
   final String? bio;
   final List<String>? sports;
   final List<String>? interests;
+  final String? pet;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -19,6 +20,7 @@ class User {
     this.bio,
     this.sports,
     this.interests,
+    this.pet,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -33,8 +35,23 @@ class User {
       bio: json['bio'],
       sports: json['sports'] != null ? List<String>.from(json['sports']) : null,
       interests: json['interests'] != null ? List<String>.from(json['interests']) : null,
+      pet: json['pet'],
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'telegram_id': telegramId,
+      'telegram_username': telegramUsername,
+      'name': name,
+      'avatar_url': avatarUrl,
+      'bio': bio,
+      'sports': sports,
+      'interests': interests,
+      'pet': pet,
+    };
   }
 } 

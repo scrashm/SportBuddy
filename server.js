@@ -168,6 +168,7 @@ async function initializeUsersTable() {
         bio TEXT,
         sports TEXT[],
         interests TEXT[],
+        pet TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -197,7 +198,7 @@ app.get('/user/:telegram_id', async (req, res) => {
 // --- Создать/обновить профиль пользователя ---
 app.post('/user/:telegram_id', async (req, res) => {
   const { telegram_id } = req.params;
-  const { name, avatar_url, bio, sports, interests } = req.body;
+  const { name, avatar_url, bio, sports, interests, pet } = req.body;
   const client = await pool.connect();
   try {
     const result = await client.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
@@ -205,8 +206,8 @@ app.post('/user/:telegram_id', async (req, res) => {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
     await client.query(
-      `UPDATE users SET name = $1, avatar_url = $2, bio = $3, sports = $4, interests = $5, updated_at = NOW() WHERE telegram_id = $6`,
-      [name, avatar_url, bio, sports, interests, telegram_id]
+      `UPDATE users SET name = $1, avatar_url = $2, bio = $3, sports = $4, interests = $5, pet = $6, updated_at = NOW() WHERE telegram_id = $7`,
+      [name, avatar_url, bio, sports, interests, pet, telegram_id]
     );
     const updated = await client.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
     res.json(updated.rows[0]);
