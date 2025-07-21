@@ -6,22 +6,7 @@ import 'profile_screen.dart';
 
 /// Главный экран приложения с нижней навигацией
 class MainScreen extends StatefulWidget {
-  final List<String> sports;
-  final String? avatar;
-  final String? bio;
-  final String? work;
-  final String? study;
-  final String? pet;
-
-  const MainScreen({
-    super.key,
-    this.sports = const [],
-    this.avatar,
-    this.bio,
-    this.work,
-    this.study,
-    this.pet,
-  });
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -36,11 +21,7 @@ class _MainScreenState extends State<MainScreen> {
       const MapScreen(),
       const SearchScreen(),
       const EventsScreen(),
-      ProfileScreen(
-        sports: widget.sports,
-        avatar: widget.avatar,
-        bio: widget.bio,
-      ),
+      const ProfileScreen(),
     ];
 
     return Scaffold(

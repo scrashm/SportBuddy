@@ -39,14 +39,7 @@ class AuthWrapper extends StatelessWidget {
         if (authService.currentUser == null) {
           return const AuthScreen();
         } else {
-          return const MainScreen(
-            sports: [], 
-            avatar: null, 
-            bio: null, 
-            work: null, 
-            study: null, 
-            pet: null
-          );
+          return const MainScreen();
         }
       },
     );
