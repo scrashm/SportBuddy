@@ -18,7 +18,7 @@ if (!token) {
   console.error('TELEGRAM_BOT_TOKEN не найден! Пожалуйста, добавьте его в переменные окружения.');
   process.exit(1);
 }
-const bot = new TelegramBot(token);
+const bot = new TelegramBot(token, { polling: false });
 
 // Хранилище для кодов (в реальном приложении лучше использовать Redis)
 const otpStore = new Map();
