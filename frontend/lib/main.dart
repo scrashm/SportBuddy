@@ -1,110 +1,53 @@
 // Главная точка входа в приложение
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'firebase_options.dart';
-// Импортируем экраны из отдельной папки
-import 'screens/auth_screen.dart';
-import 'screens/main_screen.dart';
-import 'screens/profile_onboarding_screen.dart';
-import 'screens/avatar_bio_onboarding_screen.dart';
 import 'services/auth_service.dart';
+import 'models/user.dart' as app_user;
+import 'screens/auth_screen.dart';
+import 'screens/main_screen.dart'; // Предполагаем, что MainScreen существует
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<AuthService>(
-          create: (_) => AuthService(),
-        ),
-      ],
+    return ChangeNotifierProvider(
+      create: (_) => AuthService(),
       child: MaterialApp(
         title: 'Sport Buddy RU',
         theme: ThemeData(
-          fontFamily: 'NotoSans',
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-          useMaterial3: true,
+          primarySwatch: Colors.green,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
-        locale: const Locale('ru', 'RU'),
-        supportedLocales: const [Locale('ru', 'RU')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const AppFlow(),
+        home: const AuthWrapper(),
       ),
     );
   }
 }
 
-class AppFlow extends StatefulWidget {
-  const AppFlow({super.key});
-  @override
-  State<AppFlow> createState() => _AppFlowState();
-}
-
-class _AppFlowState extends State<AppFlow> {
-  List<String> _selectedSports = [];
-  String? _avatar;
-  String? _bio;
-  String? _work;
-  String? _study;
-  String? _pet;
-
-  PageRouteBuilder _slide(Widget child) {
-    return PageRouteBuilder(
-      pageBuilder: (_, __, ___) => child,
-      transitionsBuilder: (_, animation, __, child) {
-        final offsetAnimation = Tween<Offset>(
-          begin: const Offset(1, 0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: animation, curve: Curves.ease));
-        return SlideTransition(position: offsetAnimation, child: child);
-      },
-      transitionDuration: const Duration(milliseconds: 400),
-    );
-  }
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return AuthScreen(
-      onAuthorized: () {
-        Navigator.of(context).push(_slide(ProfileOnboardingScreen(
-          onComplete: (sports) {
-            setState(() => _selectedSports = sports);
-            Navigator.of(context).push(_slide(AvatarBioOnboardingScreen(
-              onComplete: (avatar, bio, work, study, pet) {
-                setState(() {
-                  _avatar = avatar;
-                  _bio = bio;
-                  _work = work;
-                  _study = study;
-                  _pet = pet;
-                });
-                Navigator.of(context).pushReplacement(_slide(MainScreen(
-                  sports: _selectedSports,
-                  avatar: _avatar,
-                  bio: _bio,
-                  work: _work,
-                  study: _study,
-                  pet: _pet,
-                )));
-              },
-            )));
-          },
-        )));
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        if (authService.currentUser == null) {
+          return const AuthScreen();
+        } else {
+          return const MainScreen(
+            sports: [], 
+            avatar: null, 
+            bio: null, 
+            work: null, 
+            study: null, 
+            pet: null
+          );
+        }
       },
     );
   }

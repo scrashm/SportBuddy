@@ -1,133 +1,73 @@
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user.dart' as app_model;
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
+import '../models/user.dart';
 
-class AuthService {
-  final fb_auth.FirebaseAuth _auth = fb_auth.FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class AuthService with ChangeNotifier {
+  // TODO: Вынести в конфигурацию
+  static const String _baseUrl = 'https://sportbuddy-production.up.railway.app';
 
-  // Получение текущего пользователя
-  app_model.User? get currentUser {
-    final firebaseUser = _auth.currentUser;
-    if (firebaseUser != null) {
-      return app_model.User(
-        id: firebaseUser.uid,
-        name: firebaseUser.displayName ?? 'Пользователь',
-        avatarUrl: firebaseUser.photoURL,
-        sports: [],
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-    }
-    return null;
+  User? _currentUser;
+  User? get currentUser => _currentUser;
+
+  // Добавляем конструктор для отправки начального события
+  AuthService() {
+    // Initial state is null, as no user is logged in
   }
 
-  // Stream для отслеживания изменений авторизации
-  Stream<app_model.User?> get authStateChanges {
-    return _auth.authStateChanges().asyncMap((firebaseUser) async {
-      if (firebaseUser != null) {
-        // Получаем дополнительные данные из Firestore
-        final doc = await _firestore.collection('users').doc(firebaseUser.uid).get();
-        if (doc.exists) {
-          return app_model.User.fromFirestore(doc);
-        } else {
-          // Создаем нового пользователя
-          return app_model.User(
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName ?? 'Пользователь',
-            avatarUrl: firebaseUser.photoURL,
-            sports: [],
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-        }
+  Future<void> signInWithTelegram() async {
+    // 1. Запрос на начало входа
+    final startResponse = await http.post(Uri.parse('$_baseUrl/auth/telegram/start'));
+    if (startResponse.statusCode != 200) {
+      throw Exception('Не удалось начать процесс входа.');
+    }
+    final startData = jsonDecode(startResponse.body);
+    final String url = startData['url'];
+    final String token = startData['token'];
+
+    // 2. Открытие ссылки в Telegram
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } else {
+      throw Exception('Не удалось открыть Telegram.');
+    }
+
+    // 3. Polling статуса токена
+    while (true) {
+      await Future.delayed(const Duration(seconds: 3));
+      final statusResponse = await http.get(Uri.parse('$_baseUrl/auth/telegram/status/$token'));
+      if (statusResponse.statusCode != 200) {
+        // Можно добавить обработку, если сервер упал
+        continue;
       }
-      return null;
-    });
-  }
-
-  // Вход через анонимную аутентификацию (для тестирования)
-  Future<fb_auth.UserCredential> signInAnonymously() async {
-    try {
-      final credential = await _auth.signInAnonymously();
-      // Создаем запись в Firestore
-      await _firestore.collection('users').doc(credential.user!.uid).set({
-        'name': 'Гость',
-        'sports': [],
-        'createdAt': Timestamp.now(),
-        'updatedAt': Timestamp.now(),
-      });
-      return credential;
-    } catch (e) {
-      throw Exception('Ошибка анонимного входа: $e');
+      final statusData = jsonDecode(statusResponse.body);
+      if (statusData['status'] == 'confirmed') {
+        final String telegramId = statusData['telegram_id'].toString();
+        await _fetchAndSetUser(telegramId);
+        break;
+      }
+      // Можно добавить таймаут, если пользователь долго не подтверждает
     }
   }
 
-  // Вход через VK (заглушка - нужно настроить VK SDK)
-  Future<fb_auth.UserCredential> signInWithVK() async {
-    // TODO: Реализовать вход через VK
-    throw UnimplementedError('Вход через VK пока не реализован');
+  Future<void> _fetchAndSetUser(String telegramId) async {
+    print('[AUTH] Получение данных пользователя для telegramId: $telegramId');
+    final userResponse = await http.get(Uri.parse('$_baseUrl/user/$telegramId'));
+    if (userResponse.statusCode == 200) {
+      _currentUser = User.fromJson(jsonDecode(userResponse.body));
+      print('[AUTH] Пользователь получен и установлен: ${_currentUser?.name}');
+      notifyListeners();
+    } else {
+      print('[AUTH ERROR] Не удалось получить данные пользователя: ${userResponse.body}');
+      throw Exception('Не удалось получить данные пользователя.');
+    }
   }
 
-  // Вход через Яндекс (заглушка - нужно настроить Яндекс OAuth)
-  Future<fb_auth.UserCredential> signInWithYandex() async {
-    // TODO: Реализовать вход через Яндекс
-    throw UnimplementedError('Вход через Яндекс пока не реализован');
-  }
-
-  // Вход через Telegram (заглушка - нужно настроить Telegram Bot API)
-  Future<fb_auth.UserCredential> signInWithTelegram() async {
-    // TODO: Реализовать вход через Telegram
-    throw UnimplementedError('Вход через Telegram пока не реализован');
-  }
-
-  // Обновление профиля пользователя
-  Future<void> updateUserProfile({
-    String? name,
-    String? bio,
-    String? work,
-    String? study,
-    String? pet,
-    List<String>? sports,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('Пользователь не авторизован');
-
-    final updates = <String, dynamic>{
-      'updatedAt': Timestamp.now(),
-    };
-
-    if (name != null) updates['name'] = name;
-    if (bio != null) updates['bio'] = bio;
-    if (work != null) updates['work'] = work;
-    if (study != null) updates['study'] = study;
-    if (pet != null) updates['pet'] = pet;
-    if (sports != null) updates['sports'] = sports;
-
-    await _firestore.collection('users').doc(user.uid).update(updates);
-  }
-
-  // Выход
   Future<void> signOut() async {
-    try {
-      await _auth.signOut();
-    } catch (e) {
-      throw Exception('Ошибка выхода: $e');
-    }
-  }
-
-  // Удаление аккаунта
-  Future<void> deleteAccount() async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('Пользователь не авторизован');
-
-    try {
-      // Удаляем данные из Firestore
-      await _firestore.collection('users').doc(user.uid).delete();
-      // Удаляем аккаунт Firebase
-      await user.delete();
-    } catch (e) {
-      throw Exception('Ошибка удаления аккаунта: $e');
-    }
+    _currentUser = null;
+    print('[AUTH] Пользователь вышел из системы.');
+    notifyListeners();
   }
 } 
