@@ -6,11 +6,13 @@ const crypto = require('crypto');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// --- Подключение к базе данных PostgreSQL ---
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
+// --- Инициализация Telegram-бота в режиме long polling ---
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
   console.error('TELEGRAM_BOT_TOKEN не найден!');
@@ -20,19 +22,27 @@ const bot = new TelegramBot(token, { polling: true });
 
 app.use(express.json());
 
-// --- Хранилище токенов (в реальном проекте лучше Redis или БД) ---
-const loginTokens = new Map(); // token: { status, telegram_id, telegram_username, createdAt }
+// --- Хранилище токенов для входа через Telegram (лучше использовать Redis или БД в проде) ---
+// loginTokens: token -> { status, telegram_id, telegram_username, createdAt }
+const loginTokens = new Map();
 
-// --- Генерация токена и выдача ссылки ---
+/**
+ * Эндпоинт для генерации токена и выдачи deep link для входа через Telegram
+ * POST /auth/telegram/start
+ * Ответ: { url, token }
+ */
 app.post('/auth/telegram/start', async (req, res) => {
-  // Можно добавить user_agent/ip для защиты от спама
   const loginToken = crypto.randomBytes(16).toString('hex');
   loginTokens.set(loginToken, { status: 'pending', createdAt: Date.now() });
   const url = `https://t.me/SportBuddyAuthBot?start=token_${loginToken}`;
   res.json({ url, token: loginToken });
 });
 
-// --- Проверка статуса токена ---
+/**
+ * Эндпоинт для проверки статуса токена (используется фронтом для polling)
+ * GET /auth/telegram/status/:token
+ * Ответ: { status, telegram_id?, telegram_username? }
+ */
 app.get('/auth/telegram/status/:token', (req, res) => {
   const { token } = req.params;
   const entry = loginTokens.get(token);
@@ -44,7 +54,10 @@ app.get('/auth/telegram/status/:token', (req, res) => {
   }
 });
 
-// --- Интеграция с Telegram Bot ---
+/**
+ * Обработка команды /start с deep link (бот получает /start token_xxx)
+ * Сохраняет Telegram ID и username, отправляет пользователю кнопку подтверждения
+ */
 bot.onText(/\/start (token_[a-f0-9]+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
@@ -70,6 +83,10 @@ bot.onText(/\/start (token_[a-f0-9]+)/, async (msg, match) => {
   });
 });
 
+/**
+ * Обработка нажатия кнопки "Подтвердить вход" в Telegram-боте
+ * Помечает токен как подтвержденный, сообщает пользователю об успешном входе
+ */
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
@@ -86,7 +103,7 @@ bot.on('callback_query', async (query) => {
   }
 });
 
-// --- Тестовый маршрут ---
+// --- Тестовый маршрут для проверки БД ---
 app.get('/test-db', async (req, res) => {
   try {
     const client = await pool.connect();
@@ -98,6 +115,7 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
+// --- Запуск сервера ---
 app.listen(port, () => {
   console.log(`Сервер запущен на порту ${port} и готов к Telegram deep linking.`);
 }); 
