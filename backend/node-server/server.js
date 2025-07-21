@@ -4,6 +4,7 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Финальная попытка деплоя
 // Попытка передеплоя с новыми настройками
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
