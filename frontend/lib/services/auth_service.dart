@@ -8,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 class AuthService with ChangeNotifier {
   // TODO: Вынести в конфигурацию
-  static const String _baseUrl = 'http://localhost:3000';
+  static const String _baseUrl = 'http://127.0.0.1:3000';
 
   User? _currentUser;
   User? get currentUser => _currentUser;
