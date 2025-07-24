@@ -6,7 +6,28 @@
   "deploy": {
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
+    "healthcheckInterval": 30,
     "restartPolicyType": "on_failure",
-    "restartPolicyMaxRetries": 10
+    "restartPolicyMaxRetries": 10,
+    "crashDetection": true
+  },
+  "monitoring": {
+    "alerts": {
+      "deployHealth": {
+        "enabled": true,
+        "thresholds": {
+          "failedHealthChecks": 3,
+          "responseTime": 5000,
+          "errorRate": 0.05
+        }
+      },
+      "resources": {
+        "enabled": true,
+        "thresholds": {
+          "memoryUsage": 0.85,
+          "cpuUsage": 0.80
+        }
+      }
+    }
   }
 }

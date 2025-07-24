@@ -2,11 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
+import 'services/config_service.dart';
 import 'models/user.dart' as app_user;
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart'; // Предполагаем, что MainScreen существует
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ConfigService.initialize();
   runApp(const MyApp());
 }
 

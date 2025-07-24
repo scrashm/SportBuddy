@@ -319,6 +319,61 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
+// ВРЕМЕННЫЙ МИГРАЦИОННЫЙ СКРИПТ ДЛЯ СОЗДАНИЯ ТАБЛИЦ
+async function runMigrations() {
+  const client = await pool.connect();
+  try {
+    await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        telegram_id BIGINT UNIQUE NOT NULL,
+        telegram_username VARCHAR(255),
+        name VARCHAR(255),
+        avatar_url TEXT,
+        bio TEXT,
+        sports TEXT[],
+        interests TEXT[],
+        pet TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS login_tokens (
+        token TEXT PRIMARY KEY,
+        status VARCHAR(50) NOT NULL,
+        telegram_id BIGINT,
+        telegram_username VARCHAR(255),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255),
+        description TEXT,
+        sport_type VARCHAR(100),
+        date_time TIMESTAMPTZ,
+        location TEXT,
+        creator_id UUID,
+        participants TEXT[],
+        max_participants INT,
+        image_url TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('Миграции успешно выполнены! Все таблицы созданы.');
+  } catch (err) {
+    console.error('[MIGRATION ERROR]', err);
+  } finally {
+    client.release();
+  }
+}
+
+runMigrations();
+
 // --- Запуск сервера ---
 app.listen(port, '0.0.0.0', () => {
   console.log(`Сервер запущен на порту ${port} и готов к Telegram deep linking.`);

@@ -47,6 +47,9 @@ dependencies:
   image_picker: ^1.0.4
   geolocator: ^14.0.2
   google_maps_flutter: ^2.5.0
+  flutter_dotenv: ^5.1.0
+  fluttertoast: ^8.2.4
+  connectivity_plus: ^5.0.2
 
 dev_dependencies:
   flutter_test:
@@ -103,6 +106,7 @@ flutter:
   assets:
     - assets/images/capybara.png
     - assets/images/capybara2.jpg
+    - .env
   fonts:
     - family: NotoSans
       fonts:

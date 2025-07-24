@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/error_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -13,19 +15,18 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
 
   void _signInWithTelegram() async {
+    // Check connectivity before starting
+    await ErrorService.checkConnectivityAndWarn();
+    
     setState(() => _isLoading = true);
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.signInWithTelegram();
+      // Success is handled in the auth service with a success toast
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      // Error handling is done within the AuthService using ErrorService
+      // No need for additional error display here as toasts are shown automatically
+      debugPrint('Auth error caught in UI: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
